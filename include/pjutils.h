@@ -366,6 +366,18 @@ bool is_param_in_route_hdr(const pjsip_route_hdr* route,
 bool is_param_in_top_route(const pjsip_msg* req,
                            const pj_str_t* param_name);
 
+/// TODO: Design question.
+/// This function is an initial stab at trying to get the priority of a
+/// message - I expect the actual implementation to be different (i.e. needs
+/// to pull in configuration, should the priority just be an int, should this
+/// even be in pjutils...).
+
+/// Gets the priority of a message, based on the Resource-Priority headers.
+///
+/// @param msg        - The message to determine the priority of.
+/// @return           - The priority (just as an int currently)
+int get_priority_of_message(const pjsip_msg* msg);
+
 } // namespace PJUtils
 
 #endif
