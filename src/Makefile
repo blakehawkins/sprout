@@ -98,7 +98,8 @@ SPROUT_COMMON_SOURCES := logger.cpp \
                          event_statistic_accumulator.cpp \
                          aor.cpp \
                          astaire_aor_store.cpp \
-                         sprout_xml_utils.cpp
+                         sprout_xml_utils.cpp \
+                         rphservice.cpp
 
 sprout_SOURCES := ${SPROUT_COMMON_SOURCES} \
                   snmp_counter_table.cpp \
@@ -106,6 +107,7 @@ sprout_SOURCES := ${SPROUT_COMMON_SOURCES} \
                   snmp_ip_count_table.cpp \
                   snmp_success_fail_count_table.cpp \
                   snmp_success_fail_count_by_request_type_table.cpp \
+                  snmp_success_fail_count_by_priority_and_scope_table.cpp \
                   snmp_event_accumulator_table.cpp \
                   snmp_event_accumulator_by_scope_table.cpp \
                   snmp_scalar_by_scope_table.cpp \
@@ -146,7 +148,6 @@ sprout_test_SOURCES := ${SPROUT_COMMON_SOURCES} \
                        bono_test.cpp \
                        bgcfservice_test.cpp \
                        options_test.cpp \
-                       utils_test.cpp \
                        aschain_test.cpp \
                        sessioncase_test.cpp \
                        ifchandler_test.cpp \
@@ -205,7 +206,10 @@ sprout_test_SOURCES := ${SPROUT_COMMON_SOURCES} \
                        scscf_utils.cpp \
                        test_interposer.cpp \
                        curl_interposer.cpp \
-                       testingcommon.cpp
+                       testingcommon.cpp \
+                       thread_dispatcher_test.cpp \
+                       rphservice_test.cpp \
+                       mock_rph_service.cpp
 
 COVERAGE_ROOT := ..
 sprout_test_COVERAGE_EXCLUSIONS := ^src/ut|^usr|^modules/gmock|^modules/cpp-common|^modules/rapidjson|^include|^src/mangelwurzel/ut|^modules/gemini/src/ut|^modules/gemini/include|^modules/memento-as/modules|^modules/memento-as/src/ut|^modules/memento-as/include
@@ -230,6 +234,7 @@ sprout_test_CPPFLAGS := ${SPROUT_COMMON_CPPFLAGS} \
                         -DGTEST_USE_OWN_TR1_TUPLE=0
 
 SPROUT_COMMON_LDFLAGS := -rdynamic \
+                         -Wl,-rpath -Wl,/usr/share/clearwater/sprout/lib \
                          -L../usr/lib \
                          -lmemcached \
                          -lmemcachedutil \

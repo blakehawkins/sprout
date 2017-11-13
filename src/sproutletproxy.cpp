@@ -593,6 +593,8 @@ bool SproutletProxy::timer_running(pj_timer_entry* tentry)
 }
 
 
+std::atomic_int SproutletProxy::UASTsx::_num_instances(0);
+
 SproutletProxy::UASTsx::TimerCallback::TimerCallback(pj_timer_entry* timer) :
   _timer_entry(timer)
 {
@@ -614,7 +616,9 @@ SproutletProxy::UASTsx::UASTsx(SproutletProxy* proxy) :
   _timers(),
   _pending_timers()
 {
-  TRC_VERBOSE("Sproutlet Proxy transaction (%p) created", this);
+  int instances = ++_num_instances;
+  TRC_DEBUG("Sproutlet Proxy transaction (%p) created. There are now %d instances",
+            this, instances);
 }
 
 
@@ -645,7 +649,9 @@ SproutletProxy::UASTsx::~UASTsx()
     SAS::report_marker(flush);
   }
 
-  TRC_VERBOSE("Sproutlet Proxy transaction (%p) destroyed", this);
+  int instances = --_num_instances;
+  TRC_DEBUG("Sproutlet Proxy transaction (%p) destroyed. There are now %d instances",
+            this, instances);
 }
 
 
@@ -1069,10 +1075,12 @@ void SproutletProxy::UASTsx::process_timer_pop(pj_timer_entry* tentry)
 {
   enter_context();
 
-  _pending_timers.erase(tentry);
-  TimerCallbackData* tdata = (TimerCallbackData*)tentry->user_data;
-  tdata->sproutlet_wrapper->on_timer_pop((TimerID)tentry, tdata->context);
-  schedule_requests();
+  if (_pending_timers.erase(tentry) != 0)
+  {
+    TimerCallbackData* tdata = (TimerCallbackData*)tentry->user_data;
+    tdata->sproutlet_wrapper->on_timer_pop((TimerID)tentry, tdata->context);
+    schedule_requests();
+  }
 
   exit_context();
 }
@@ -1090,7 +1098,15 @@ void SproutletProxy::UASTsx::tx_response(SproutletWrapper* downstream,
       int st_code = rsp->msg->line.status.code;
       set_trail(rsp, trail());
       on_tx_response(rsp);
-      pjsip_tsx_send_msg(_tsx, rsp);
+      pj_status_t status = pjsip_tsx_send_msg(_tsx, rsp);
+
+      if (status != PJ_SUCCESS)
+      {
+        TRC_INFO("Failed to send UASTsx message: %s",
+                 PJUtils::pj_status_to_string(status).c_str());
+        // pjsip_tsx_send_msg only decreases the ref count on success
+        pjsip_tx_data_dec_ref(rsp);
+      }
 
       if (st_code >= PJSIP_SC_OK)
       {
@@ -2005,6 +2021,13 @@ void SproutletWrapper::rx_fork_error(ForkErrorState fork_error, int fork_id)
                                                   status_code,
                                                   NULL,
                                                   &rsp);
+
+    // SAS log the error and response
+    SAS::Event event(trail(), SASEvent::RX_FORK_ERROR, 0);
+    event.add_static_param(fork_id);
+    event.add_static_param(fork_error);
+    event.add_static_param(status_code);
+    SAS::report_event(event);
 
     // This counts as a final response, so mark the fork as terminated and
     // decrement the number of pending responses.
